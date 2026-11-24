@@ -39,7 +39,8 @@
           "cameraPermission": "Restyle needs your camera so you can photograph a room to redesign.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

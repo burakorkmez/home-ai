@@ -42,6 +42,7 @@ export default function SignIn() {
   const [resetSent, setResetSent] = useState(false);
 
   const switchMode = (m: Mode) => {
+    if (loading) return; // a pending request would land on the wrong form
     setMode(m);
     setError('');
     setResetSent(false);
@@ -104,6 +105,7 @@ export default function SignIn() {
               label="Email"
               value={email}
               onChangeText={setEmail}
+              editable={!loading}
               placeholder="you@example.com"
               autoCapitalize="none"
               autoComplete="email"

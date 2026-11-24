@@ -43,8 +43,11 @@ const seed = (): Design[] => [
 ];
 
 let designs = seed();
+let seq = 0; // keeps ids unique within the same millisecond
+let resetVersion = 0; // bumped on reset so in-flight generations don't resurrect into a wiped account
 export const resetFakeData = () => {
   designs = [];
+  resetVersion++;
 };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -76,11 +79,13 @@ export async function uploadPhoto(uri: string) {
 
 /** POST /api/generate */
 export async function generateDesign(input: { originalPath: string; roomType: RoomTypeId; style: StyleId }) {
+  const version = resetVersion;
   await wait(6000);
+  if (version !== resetVersion) throw new ApiError(401, 'Your account was deleted.');
   if (remaining() === 0) throw new ApiError(429, "You've used all 5 designs for today. Come back tomorrow.");
   if (Math.random() < FAIL_RATE) throw new ApiError(502, "We couldn't redesign this photo. Your daily quota wasn't used, so feel free to try again.");
   const d: Design = {
-    id: `d${Date.now()}`,
+    id: `d${Date.now()}-${++seq}`,
     roomType: input.roomType,
     style: input.style,
     createdAt: new Date().toISOString(),

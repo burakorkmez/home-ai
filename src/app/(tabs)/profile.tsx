@@ -41,22 +41,23 @@ export default function Profile() {
     }, []),
   );
 
+  async function deleteAccount() {
+    setBusy('delete');
+    await authClient.deleteUser();
+  }
+
   function confirmDelete() {
-    Alert.alert(
-      'Delete account?',
-      'This permanently deletes your account and every design you have made. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy('delete');
-            await authClient.deleteUser();
-          },
-        },
-      ],
-    );
+    const title = 'Delete account?';
+    const message = 'This permanently deletes your account and every design you have made. This cannot be undone.';
+    // Alert.alert is a no-op on web.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) deleteAccount();
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: deleteAccount },
+    ]);
   }
 
   const user = session?.user;

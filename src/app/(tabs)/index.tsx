@@ -1,9 +1,10 @@
+import { Asset } from 'expo-asset';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Alert, Image as RNImage, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -37,7 +38,12 @@ export default function Create() {
 
   useFocusEffect(
     useCallback(() => {
-      listDesigns().then((r) => setRemaining(r.remaining));
+      const refresh = () => listDesigns().then((r) => setRemaining(r.remaining));
+      refresh();
+      // Quota resets at 00:00 UTC; refetch then in case the screen stays focused.
+      const now = new Date();
+      const timer = setTimeout(refresh, Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime() + 1000);
+      return () => clearTimeout(timer);
     }, []),
   );
 
@@ -129,7 +135,7 @@ export default function Create() {
               </View>
               <Pressable
                 onPress={() => {
-                  setPhoto(RNImage.resolveAssetSource(SAMPLE_LIVING)?.uri ?? null);
+                  setPhoto(Asset.fromModule(SAMPLE_LIVING).uri || null);
                   setRoomType('living-room');
                 }}
                 className="py-1">

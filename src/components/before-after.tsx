@@ -41,15 +41,33 @@ export function BeforeAfter({ before, after, autoPlay, labels = true, rounded = 
     },
   });
 
+  // Keyboard / screen-reader adjustment: same clamped position as dragging.
+  const step = (delta: number) => {
+    cancelAnimation(pos);
+    pos.set(Math.min(1, Math.max(0, pos.get() + delta)));
+  };
+
   const clip = useAnimatedStyle(() => ({ width: pos.get() * width.get() }));
   const beforeImg = useAnimatedStyle(() => ({ width: width.get() }));
   const handle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.get() * width.get() }] }));
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={pan} touchAction="pan-y">
       <View
         className={`flex-1 overflow-hidden bg-surface ${rounded ? 'rounded-3xl' : ''}`}
-        onLayout={(e) => width.set(e.nativeEvent.layout.width)}>
+        onLayout={(e) => width.set(e.nativeEvent.layout.width)}
+        accessible
+        focusable
+        accessibilityRole="adjustable"
+        accessibilityLabel="Before and after comparison"
+        accessibilityHint="Adjust to reveal more of the before or after photo"
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => step(e.nativeEvent.actionName === 'increment' ? 0.1 : -0.1)}
+        onKeyDown={(e) => {
+          const key = e.nativeEvent.key;
+          if (key === 'ArrowRight' || key === 'ArrowUp') step(0.1);
+          else if (key === 'ArrowLeft' || key === 'ArrowDown') step(-0.1);
+        }}>
         <Image source={after} style={{ flex: 1 }} contentFit="cover" transition={250} />
 
         <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, left: 0, overflow: 'hidden' }, clip]}>

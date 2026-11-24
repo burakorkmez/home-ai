@@ -29,7 +29,7 @@ const nameFromEmail = (email: string) => {
 
 export const authClient = {
   useSession() {
-    const data = useSyncExternalStore(subscribe, () => session);
+    const data = useSyncExternalStore(subscribe, () => session, () => null);
     return { data, isPending: false };
   },
   signIn: {

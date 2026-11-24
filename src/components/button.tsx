@@ -29,12 +29,13 @@ export function Button({ title, onPress, variant = 'primary', icon, arrow, loadi
       disabled={disabled || loading}
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
-      className={`h-14 justify-center rounded-full active:opacity-80 ${v.box} ${disabled ? 'opacity-40' : ''}`}>
-      <View className="flex-row items-center justify-center gap-2.5 px-14">
+      className={`min-h-14 justify-center rounded-full active:opacity-80 ${v.box} ${disabled ? 'opacity-40' : ''}`}>
+      {/* px-14 reserves room for the absolute arrow; min-h + py let scaled text grow the button */}
+      <View className="flex-row items-center justify-center gap-2.5 px-14 py-3">
         {(icon || loading) && (
           <View className="h-7 w-7 items-center justify-center">{loading ? <ActivityIndicator color={v.spinner} /> : icon}</View>
         )}
-        <Text className={`text-[18px] font-semibold ${v.text}`}>{title}</Text>
+        <Text className={`shrink text-center text-[18px] font-semibold ${v.text}`}>{title}</Text>
       </View>
       {arrow && (
         <View className="absolute inset-y-0 right-2 justify-center">
