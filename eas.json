@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-PREVIEW.expo.app",
+        "EXPO_PUBLIC_NEON_REALTIME_URL": "wss://ep-raspy-sunset-bdsxaldk.rt.c-8.us-east-2.aws.neon.tech/"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-PROD.expo.app",
+        "EXPO_PUBLIC_NEON_REALTIME_URL": "wss://ep-raspy-sunset-bdsxaldk.rt.c-8.us-east-2.aws.neon.tech/"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

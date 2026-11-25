@@ -13,7 +13,8 @@ const theme = {
 };
 
 export default function RootLayout() {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
+  if (isPending) return null; // avoid flashing the welcome screen while the stored session loads
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>

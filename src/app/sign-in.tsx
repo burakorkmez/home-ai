@@ -59,9 +59,9 @@ export default function SignIn() {
         ? await authClient.signIn.email({ email, password })
         : mode === 'signUp'
           ? await authClient.signUp.email({ name: name.trim(), email, password })
-          : await authClient.requestPasswordReset({ email });
+          : await authClient.requestPasswordReset({ email, redirectTo: '/api/reset-password' });
     setLoading(false);
-    if (error) return setError(error.message);
+    if (error) return setError(error.message ?? 'Something went wrong. Try again.');
     if (mode === 'reset') setResetSent(true);
     // On sign-in the auth gate in _layout swaps to the tabs automatically.
   }

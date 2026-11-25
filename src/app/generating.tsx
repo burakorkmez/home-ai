@@ -29,7 +29,7 @@ export default function Generating() {
   const [phase, setPhase] = useState<Phase>('uploading');
   const [error, setError] = useState('');
   const [tip, setTip] = useState(0);
-  const uploadedPath = useRef<string | null>(null);
+  const uploaded = useRef<Awaited<ReturnType<typeof uploadPhoto>> | null>(null);
   const alive = useRef(true);
 
   async function run() {
@@ -39,17 +39,18 @@ export default function Generating() {
     }
     setError('');
     try {
-      if (!uploadedPath.current) {
+      if (!uploaded.current) {
         setPhase('uploading');
-        uploadedPath.current = (await uploadPhoto(photo)).path;
+        uploaded.current = await uploadPhoto(photo);
       }
       if (!alive.current) return;
       setPhase('designing');
-      const design = await generateDesign({ originalPath: uploadedPath.current, roomType, style });
+      const design = await generateDesign(uploaded.current.generateUrl, { originalPath: uploaded.current.path, landscape: uploaded.current.landscape, roomType, style });
       if (!alive.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({ pathname: '/design/[id]', params: { id: design.id } });
     } catch (e) {
+      console.warn('generate failed', e);
       if (!alive.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(e instanceof ApiError ? e.message : 'Check your connection and try again.');

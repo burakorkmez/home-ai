@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
-import { listDesigns, type Design } from '@/lib/api';
+import { listDesigns, type DesignSummary } from '@/lib/api';
 import { roomName, styleName } from '@/lib/catalog';
 import { relativeDay } from '@/lib/format';
 import { C } from '@/lib/theme';
@@ -14,11 +14,16 @@ import { C } from '@/lib/theme';
 export default function Designs() {
   const insets = useSafeAreaInsets();
   const cardWidth = (useWindowDimensions().width - 20 * 2 - 12) / 2;
-  const [designs, setDesigns] = useState<Design[] | null>(null);
+  const [designs, setDesigns] = useState<DesignSummary[] | null>(null);
+  const [error, setError] = useState('');
 
   useFocusEffect(
     useCallback(() => {
-      listDesigns().then((r) => setDesigns(r.designs));
+      setError('');
+      listDesigns().then(
+        (r) => setDesigns(r.designs),
+        (e: Error) => setError(e.message),
+      );
     }, []),
   );
 
@@ -43,8 +48,8 @@ export default function Designs() {
       }
       ListEmptyComponent={
         designs === null ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={C.accent} />
+          <View className="flex-1 items-center justify-center px-6">
+            {error ? <Text className="text-center text-sm text-muted">{error}</Text> : <ActivityIndicator color={C.accent} />}
           </View>
         ) : (
           <View className="flex-1 items-center justify-center gap-4 px-6">
@@ -69,7 +74,7 @@ export default function Designs() {
           accessibilityLabel={`${styleName(item.style)} ${roomName(item.roomType)}`}
           style={{ width: cardWidth }}
           className="aspect-[3/4] overflow-hidden rounded-3xl bg-surface active:opacity-85">
-          <Image source={item.resultUrl} style={{ flex: 1 }} contentFit="cover" transition={200} recyclingKey={item.id} />
+          <Image source={{ uri: item.thumbUrl, cacheKey: `${item.id}-thumb` }} style={{ flex: 1 }} contentFit="cover" transition={200} recyclingKey={item.id} />
           <View
             className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-12"
             style={{ backgroundImage: 'linear-gradient(to bottom, transparent, rgba(10,8,6,0.88))' }}>
