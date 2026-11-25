@@ -10,6 +10,9 @@ assert.ok(isOwnOriginal('/users/u1/originals/room_abc.jpg', 'u1'));
 assert.ok(!isOwnOriginal('/users/u2/originals/room.jpg', 'u1'), "another user's photo");
 assert.ok(!isOwnOriginal('/users/u1/results/room.jpg', 'u1'), 'only originals');
 assert.ok(!isOwnOriginal('/users/u1/originals/../../u2/originals/x.jpg', 'u1'), 'path traversal');
+assert.ok(!isOwnOriginal('/users/u1/originals/%2e%2e/%2E%2E/u2/originals/x.jpg', 'u1'), 'encoded traversal');
+assert.ok(!isOwnOriginal('/users/u1/originals/sub/x.jpg', 'u1'), 'nested path');
+assert.ok(isOwnOriginal('/users/u1/originals/room.jpg', 'u1'));
 assert.ok(!isOwnOriginal('/users/u10/originals/x.jpg', 'u1'), 'id prefix');
 assert.ok(!isOwnOriginal(null, 'u1'));
 

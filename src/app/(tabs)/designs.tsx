@@ -19,11 +19,15 @@ export default function Designs() {
 
   useFocusEffect(
     useCallback(() => {
+      let current = true; // ignore a response that lands after blur or a newer focus
       setError('');
       listDesigns().then(
-        (r) => setDesigns(r.designs),
-        (e: Error) => setError(e.message),
+        (r) => current && setDesigns(r.designs),
+        (e: Error) => current && setError(e.message),
       );
+      return () => {
+        current = false;
+      };
     }, []),
   );
 
@@ -44,6 +48,7 @@ export default function Designs() {
               {designs.length} {designs.length === 1 ? 'design' : 'designs'}
             </Text>
           )}
+          {!!error && designs !== null && <Text className="mt-1 text-sm text-danger">{error}</Text>}
         </View>
       }
       ListEmptyComponent={

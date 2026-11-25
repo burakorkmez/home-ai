@@ -126,9 +126,15 @@ export default function Create() {
               </View>
               <Pressable
                 onPress={async () => {
-                  const asset = await Asset.fromModule(SAMPLE_LIVING).downloadAsync(); // local file, so it can be uploaded
-                  setPhoto(asset.localUri);
-                  setRoomType('living-room');
+                  try {
+                    const asset = await Asset.fromModule(SAMPLE_LIVING).downloadAsync(); // local file, so it can be uploaded
+                    setPhoto(asset.localUri);
+                    setRoomType('living-room');
+                  } catch {
+                    const message = "Couldn't load the sample room. Try again or add your own photo.";
+                    if (Platform.OS === 'web') window.alert(message); // Alert.alert is a no-op on web
+                    else Alert.alert('Sample unavailable', message);
+                  }
                 }}
                 className="py-1">
                 <Text className="text-sm font-medium text-accent">No photo handy? Try a sample room</Text>

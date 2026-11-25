@@ -39,7 +39,10 @@ export default function Profile() {
     setBusy('delete');
     const { error } = await authClient.deleteUser();
     setBusy(null);
-    if (error) Alert.alert('Could not delete account', error.message ?? 'Try again.');
+    if (!error) return;
+    const message = error.message ?? 'Try again.';
+    if (Platform.OS === 'web') window.alert(`Could not delete account\n\n${message}`); // Alert.alert is a no-op on web
+    else Alert.alert('Could not delete account', message);
   }
 
   function confirmDelete() {

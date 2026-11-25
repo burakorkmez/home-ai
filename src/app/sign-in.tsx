@@ -54,15 +54,20 @@ export default function SignIn() {
     if (mode !== 'reset' && password.length < 8) return setError('Password must be at least 8 characters.');
     setError('');
     setLoading(true);
-    const { error } =
-      mode === 'signIn'
-        ? await authClient.signIn.email({ email, password })
-        : mode === 'signUp'
-          ? await authClient.signUp.email({ name: name.trim(), email, password })
-          : await authClient.requestPasswordReset({ email, redirectTo: '/api/reset-password' });
-    setLoading(false);
-    if (error) return setError(error.message ?? 'Something went wrong. Try again.');
-    if (mode === 'reset') setResetSent(true);
+    try {
+      const { error } =
+        mode === 'signIn'
+          ? await authClient.signIn.email({ email, password })
+          : mode === 'signUp'
+            ? await authClient.signUp.email({ name: name.trim(), email, password })
+            : await authClient.requestPasswordReset({ email, redirectTo: '/api/reset-password' });
+      if (error) return setError(error.message ?? 'Something went wrong. Try again.');
+      if (mode === 'reset') setResetSent(true);
+    } catch {
+      setError('Something went wrong. Check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
     // On sign-in the auth gate in _layout swaps to the tabs automatically.
   }
 

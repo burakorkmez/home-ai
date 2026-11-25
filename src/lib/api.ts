@@ -1,6 +1,7 @@
 // Thin client for the API routes in src/app/api. All business logic lives on the server.
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 
 import { API_URL, authClient } from '@/lib/auth-client';
 import type { RoomTypeId, StyleId } from '@/lib/catalog';
@@ -22,12 +23,24 @@ export class ApiError extends Error {
   }
 }
 
-/** `path` is an API route ("/api/…") or a full URL (the generate Neon Function). Both take the session cookie. */
+const web = Platform.OS === 'web';
+
+/**
+ * `path` is an API route ("/api/…") or a full URL (the generate Neon Function).
+ * Native: we send the stored session cookie ourselves ('include' can clobber it).
+ * Web: the browser owns the httpOnly cookie; the cross-origin Function gets the session token as a Bearer header.
+ */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path.startsWith('http') ? path : `${API_URL}${path}`, {
+  const external = path.startsWith('http');
+  const auth: Record<string, string> = !web
+    ? { Cookie: await authClient.getCookie() }
+    : external
+      ? { Authorization: `Bearer ${(await authClient.getSession()).data?.session.token ?? ''}` }
+      : {};
+  const res = await fetch(external ? path : `${API_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', Cookie: await authClient.getCookie() },
-    credentials: 'omit', // we set the cookie ourselves; 'include' can clobber it
+    headers: { 'Content-Type': 'application/json', ...auth },
+    credentials: web && !external ? 'include' : 'omit',
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, body.error ?? 'Something went wrong. Try again.');

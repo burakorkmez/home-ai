@@ -2,6 +2,7 @@ import '@/global.css';
 
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { authClient } from '@/lib/auth-client';
@@ -14,7 +15,11 @@ const theme = {
 
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
-  if (isPending) return null; // avoid flashing the welcome screen while the stored session loads
+  // Hide only until the first session lookup finishes (avoids flashing the welcome screen). isPending
+  // flips back to true on every signed-out refetch (e.g. app focus), which would unmount the Stack.
+  const [loaded, setLoaded] = useState(false);
+  if (!isPending && !loaded) setLoaded(true);
+  if (!loaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>

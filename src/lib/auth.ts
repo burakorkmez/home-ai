@@ -8,6 +8,9 @@ import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 import { deleteUserFiles } from '@/lib/imagekit';
 
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   database: drizzleAdapter(db, { provider: 'pg', schema }),
@@ -18,7 +21,7 @@ export const auth = betterAuth({
         from: process.env.EMAIL_FROM ?? 'Restyle <onboarding@resend.dev>',
         to: user.email,
         subject: 'Reset your Restyle password',
-        html: `<p>Hi ${user.name},</p><p><a href="${url}">Tap here to set a new password</a>. The link expires in 1 hour.</p><p>If you didn't ask for this, ignore this email.</p>`,
+        html: `<p>Hi ${escapeHtml(user.name)},</p><p><a href="${url}">Tap here to set a new password</a>. The link expires in 1 hour.</p><p>If you didn't ask for this, ignore this email.</p>`,
       });
       if (error) console.error('reset email failed', error);
     },

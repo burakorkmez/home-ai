@@ -29,9 +29,14 @@ export const styleName = (id: string) => STYLES.find((s) => s.id === id)?.name ?
 export const isRoomType = (id: unknown): id is RoomTypeId => ROOM_TYPES.some((r) => r.id === id);
 export const isStyle = (id: unknown): id is StyleId => STYLES.some((s) => s.id === id);
 
-/** An upload the app made into this user's own originals folder (see /api/upload-auth). */
-export const isOwnOriginal = (path: unknown, userId: string): path is string =>
-  typeof path === 'string' && path.startsWith(`/users/${userId}/originals/`) && !path.includes('..');
+/**
+ * An upload the app made into this user's own originals folder (see /api/upload-auth).
+ * The file name must be plain (no slashes, %-escapes or dot segments), so URL normalization can't move it.
+ */
+export const isOwnOriginal = (path: unknown, userId: string): path is string => {
+  const prefix = `/users/${userId}/originals/`;
+  return typeof path === 'string' && path.startsWith(prefix) && /^[\w-]+\.\w+$/.test(path.slice(prefix.length));
+};
 
 export function buildPrompt(roomType: RoomTypeId, style: StyleId) {
   const s = STYLES.find((x) => x.id === style)!;

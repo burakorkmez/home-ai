@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // Better Auth core tables (field names must match what Better Auth expects).
 export const user = pgTable('user', {
@@ -47,7 +47,8 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Only successful generations get a row, so the row count per UTC day is the quota.
+// A row is reserved (resultPath null) before generating and deleted if it fails, so the row count per
+// UTC day is the quota. One row per uploaded original, so a retry of the same upload never generates twice.
 export const designs = pgTable(
   'designs',
   {
@@ -56,8 +57,11 @@ export const designs = pgTable(
     roomType: text('room_type').notNull(),
     style: text('style').notNull(),
     originalPath: text('original_path').notNull(), // ImageKit file paths, never URLs
-    resultPath: text('result_path').notNull(),
+    resultPath: text('result_path'), // null while generating
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('designs_user_created_idx').on(t.userId, t.createdAt.desc())],
+  (t) => [
+    index('designs_user_created_idx').on(t.userId, t.createdAt.desc()),
+    uniqueIndex('designs_user_original_idx').on(t.userId, t.originalPath),
+  ],
 );

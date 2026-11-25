@@ -9,7 +9,7 @@ import { signedUrl } from './imagekit';
 
 type Db = PgDatabase<any, any>;
 
-// ponytail: check-then-insert, so two parallel requests can both pass (6/day max). Advisory lock if it matters.
+// Counts reservations too. Call inside the transaction that locks the user row (see functions/generate.ts).
 export async function remainingToday(db: Db, userId: string) {
   const [{ n }] = await db
     .select({ n: count() })
@@ -24,5 +24,5 @@ export const toDesign = (d: typeof designs.$inferSelect) => ({
   style: d.style,
   createdAt: d.createdAt.toISOString(),
   originalUrl: signedUrl(d.originalPath),
-  resultUrl: signedUrl(d.resultPath),
+  resultUrl: signedUrl(d.resultPath!), // callers only pass finished rows
 });

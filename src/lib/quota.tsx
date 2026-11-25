@@ -25,9 +25,15 @@ export function QuotaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     seal(day).then((query) => !cancelled && setSealed({ day, query }), () => {});
-    // The quota resets at 00:00 UTC: switch to the new day's query then.
+    // The quota resets at 00:00 UTC: switch to the new day's query then. Drop yesterday's query and count
+    // first, so a failed seal for the new day can't leave yesterday's quota showing.
     const now = new Date();
-    const timer = setTimeout(() => setDay(utcDay()), Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime() + 1000);
+    const nextDay = () => {
+      setSealed(null);
+      setRemaining(null);
+      setDay(utcDay());
+    };
+    const timer = setTimeout(nextDay, Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime() + 1000);
     return () => {
       cancelled = true;
       clearTimeout(timer);
