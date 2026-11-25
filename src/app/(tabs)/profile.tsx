@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
@@ -11,6 +11,18 @@ import { useRemainingToday } from '@/lib/quota';
 import { C } from '@/lib/theme';
 
 const PRIVACY_URL = 'https://example.com/privacy'; // TODO: hosted privacy policy page
+const TERMS_URL = 'https://example.com/terms'; // TODO: hosted terms of service page
+const SUPPORT_EMAIL = 'support@example.com'; // TODO: real support inbox
+const SHARE_URL = 'https://example.com'; // TODO: App Store / Play Store link
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View className="gap-2">
+      <Text className="px-1 text-xs font-medium uppercase tracking-wider text-faint">{title}</Text>
+      <View className="overflow-hidden rounded-3xl border border-line bg-surface">{children}</View>
+    </View>
+  );
+}
 
 function Row({ icon, label, onPress, danger, loading, last }: { icon: IconName; label: string; onPress: () => void; danger?: boolean; loading?: boolean; last?: boolean }) {
   const color = danger ? C.danger : C.cream;
@@ -97,24 +109,45 @@ export default function Profile() {
         <Text className="text-xs text-faint">Resets every day at 00:00 UTC.</Text>
       </View>
 
-      <View className="overflow-hidden rounded-3xl border border-line bg-surface">
+      {Platform.OS !== 'web' && (
+        <Section title="Preferences">
+          {/* Notification permissions live in system settings; this opens the app's page there. */}
+          <Row icon={{ ios: 'bell', android: 'notifications' }} label="Notifications" last onPress={() => Linking.openSettings()} />
+        </Section>
+      )}
+
+      <Section title="Support">
+        <Row
+          icon={{ ios: 'envelope', android: 'mail' }}
+          label="Contact support"
+          onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Restyle feedback (v${Constants.expoConfig?.version})`)}`)}
+        />
+        <Row
+          icon={{ ios: 'square.and.arrow.up', android: 'share' }}
+          label="Share Restyle"
+          last
+          onPress={() => Share.share({ message: `Redesign any room with AI — try Restyle: ${SHARE_URL}` })}
+        />
+      </Section>
+
+      <Section title="Legal">
         <Row icon={{ ios: 'hand.raised', android: 'shield' }} label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)} />
+        <Row icon={{ ios: 'doc.text', android: 'description' }} label="Terms of service" last onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} />
+      </Section>
+
+      <Section title="Account">
         <Row
           icon={{ ios: 'rectangle.portrait.and.arrow.right', android: 'logout' }}
           label="Sign out"
           loading={busy === 'signOut'}
-          last
           onPress={async () => {
             setBusy('signOut');
             await authClient.signOut();
             setBusy(null);
           }}
         />
-      </View>
-
-      <View className="overflow-hidden rounded-3xl border border-line bg-surface">
         <Row icon={{ ios: 'trash', android: 'delete_forever' }} label="Delete account" danger loading={busy === 'delete'} last onPress={confirmDelete} />
-      </View>
+      </Section>
 
       <Text className="text-center text-xs text-faint">Version {Constants.expoConfig?.version}</Text>
     </ScrollView>

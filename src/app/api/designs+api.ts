@@ -14,7 +14,8 @@ export async function GET(request: Request) {
       roomType: d.roomType,
       style: d.style,
       createdAt: d.createdAt.toISOString(),
-      thumbUrl: signedUrl(d.resultPath!, 400), // ImageKit resizes on the fly
+      thumbUrl: signedUrl(d.resultPath!, [{ width: 400, format: 'auto', quality: 70 }]), // tr:w-400,f-auto,q-70
+      placeholderUrl: signedUrl(d.resultPath!, [{ width: 20, quality: 20, blur: 6 }]), // tr:w-20,q-20,bl-6, ~1 KB
     })),
   });
 }

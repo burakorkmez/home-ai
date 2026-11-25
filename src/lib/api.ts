@@ -9,8 +9,8 @@ import type { RoomTypeId, StyleId } from '@/lib/catalog';
 export { DAILY_LIMIT } from '@/lib/catalog';
 
 export type ImageRef = string | number; // signed URL, or a bundled asset
-export type Design = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; originalUrl: string; resultUrl: string };
-export type DesignSummary = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; thumbUrl: string };
+export type Design = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; originalUrl: string; resultUrl: string; hdUrl: string; shareUrl: string };
+export type DesignSummary = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; thumbUrl: string; placeholderUrl: string };
 
 export const SAMPLE_LIVING = require('@/assets/images/rooms/living-before.jpg');
 
@@ -48,6 +48,24 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const listDesigns = () => request<{ designs: DesignSummary[] }>('/api/designs');
+
+/**
+ * Wait for an async ImageKit AI transform (e.g. e-upscale) to finish. While it is in progress ImageKit
+ * answers 200 with an HTML page and `is-intermediate-response: true`. HEAD starts the job without downloading
+ * the image. Browsers can't read that header (ImageKit doesn't expose it via CORS), so `text/html` counts too.
+ */
+export async function waitForAiTransform(url: string, signal: AbortSignal, { intervalMs = 3000, timeoutMs = 120_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await fetch(url, { method: 'HEAD', signal });
+    if (!res.ok) throw new Error(res.headers.get('ik-error') ?? `Image service error (${res.status})`);
+    const pending = res.headers.get('is-intermediate-response') === 'true' || res.headers.get('content-type')?.startsWith('text/html');
+    if (!pending) return;
+    await new Promise((r) => setTimeout(r, intervalMs));
+    if (signal.aborted) throw new Error('Aborted'); // RN's AbortSignal has no throwIfAborted()
+  }
+  throw new Error('HD is taking too long. Try again in a minute.');
+}
 
 export const getDesign = (id: string) => request<Design>(`/api/designs/${encodeURIComponent(id)}`);
 

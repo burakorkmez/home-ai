@@ -79,7 +79,15 @@ export default function Designs() {
           accessibilityLabel={`${styleName(item.style)} ${roomName(item.roomType)}`}
           style={{ width: cardWidth }}
           className="aspect-[3/4] overflow-hidden rounded-3xl bg-surface active:opacity-85">
-          <Image source={{ uri: item.thumbUrl, cacheKey: `${item.id}-thumb` }} style={{ flex: 1 }} contentFit="cover" transition={200} recyclingKey={item.id} />
+          <Image
+            source={{ uri: item.thumbUrl, cacheKey: `${item.id}-thumb` }}
+            placeholder={{ uri: item.placeholderUrl, cacheKey: `${item.id}-placeholder` }}
+            placeholderContentFit="cover"
+            style={{ flex: 1 }}
+            contentFit="cover"
+            transition={200}
+            recyclingKey={item.id}
+          />
           <View
             className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-12"
             style={{ backgroundImage: 'linear-gradient(to bottom, transparent, rgba(10,8,6,0.88))' }}>
