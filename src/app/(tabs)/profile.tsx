@@ -10,8 +10,8 @@ import { authClient } from '@/lib/auth-client';
 import { useRemainingToday } from '@/lib/quota';
 import { C } from '@/lib/theme';
 
-const PRIVACY_URL = 'https://example.com/privacy'; // TODO: hosted privacy policy page
-const TERMS_URL = 'https://example.com/terms'; // TODO: hosted terms of service page
+const PRIVACY_URL = 'https://restyle-legal.pages.dev/privacy';
+const TERMS_URL = 'https://restyle-legal.pages.dev/terms';
 const SUPPORT_EMAIL = 'support@example.com'; // TODO: real support inbox
 const SHARE_URL = 'https://example.com'; // TODO: App Store / Play Store link
 
