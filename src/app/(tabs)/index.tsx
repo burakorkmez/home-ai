@@ -2,16 +2,18 @@ import { Asset } from 'expo-asset';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { router } from 'expo-router';
+import { useState, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
-import { listDesigns, SAMPLE_LIVING } from '@/lib/api';
+import { SAMPLE_LIVING } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { ROOM_TYPES, STYLES, type RoomTypeId, type StyleId } from '@/lib/catalog';
+import { STYLE_IMAGES } from '@/lib/style-images';
+import { useRemainingToday } from '@/lib/quota';
 import { C } from '@/lib/theme';
 
 function Section({ step, title, children }: { step: number; title: string; children: ReactNode }) {
@@ -34,18 +36,7 @@ export default function Create() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [roomType, setRoomType] = useState<RoomTypeId | null>(null);
   const [style, setStyle] = useState<StyleId | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      const refresh = () => listDesigns().then((r) => setRemaining(r.remaining));
-      refresh();
-      // Quota resets at 00:00 UTC; refetch then in case the screen stays focused.
-      const now = new Date();
-      const timer = setTimeout(refresh, Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime() + 1000);
-      return () => clearTimeout(timer);
-    }, []),
-  );
+  const remaining = useRemainingToday();
 
   async function pick(source: 'camera' | 'library') {
     try {
@@ -70,7 +61,7 @@ export default function Create() {
     router.push({ pathname: '/generating', params: { photo, roomType, style } });
   }
 
-  const firstName = session?.user.name.split(' ')[0];
+  const firstName = session?.user.name.split(' ')[0] || 'there';
 
   return (
     <ScrollView
@@ -134,9 +125,16 @@ export default function Create() {
                 </Pressable>
               </View>
               <Pressable
-                onPress={() => {
-                  setPhoto(Asset.fromModule(SAMPLE_LIVING).uri || null);
-                  setRoomType('living-room');
+                onPress={async () => {
+                  try {
+                    const asset = await Asset.fromModule(SAMPLE_LIVING).downloadAsync(); // local file, so it can be uploaded
+                    setPhoto(asset.localUri);
+                    setRoomType('living-room');
+                  } catch {
+                    const message = "Couldn't load the sample room. Try again or add your own photo.";
+                    if (Platform.OS === 'web') window.alert(message); // Alert.alert is a no-op on web
+                    else Alert.alert('Sample unavailable', message);
+                  }
                 }}
                 className="py-1">
                 <Text className="text-sm font-medium text-accent">No photo handy? Try a sample room</Text>
@@ -175,7 +173,7 @@ export default function Create() {
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={`${s.name} style`}
                 className={`h-48 w-36 overflow-hidden rounded-3xl border-2 active:opacity-90 ${on ? 'border-accent' : 'border-transparent'}`}>
-                <Image source={s.image} style={{ flex: 1 }} contentFit="cover" />
+                <Image source={STYLE_IMAGES[s.id]} style={{ flex: 1 }} contentFit="cover" />
                 <View
                   className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10"
                   style={{ backgroundImage: 'linear-gradient(to bottom, transparent, rgba(10,8,6,0.85))' }}>

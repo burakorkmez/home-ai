@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -9,10 +10,10 @@ import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { SAMPLE_LIVING } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
-import { STYLES } from '@/lib/catalog';
+import { STYLE_IMAGES } from '@/lib/style-images';
 import { C } from '@/lib/theme';
 
-const HERO_AFTER = STYLES.find((s) => s.id === 'modern')!.image;
+const HERO_AFTER = STYLE_IMAGES.modern;
 
 export default function Welcome() {
   const insets = useSafeAreaInsets();
@@ -20,9 +21,33 @@ export default function Welcome() {
 
   async function social(provider: 'apple' | 'google') {
     setBusy(provider);
-    const { error } = await authClient.signIn.social({ provider });
-    setBusy(null);
-    if (error) Alert.alert('Sign in failed', error.message);
+    try {
+      let result;
+      if (provider === 'apple') {
+        // Native sheet; the server verifies the identity token. Apple sends the name only on first sign-in.
+        const cred = await AppleAuthentication.signInAsync({
+          requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+        });
+        const name = { firstName: cred.fullName?.givenName ?? undefined, lastName: cred.fullName?.familyName ?? undefined };
+        result = await authClient.signIn.social({ provider: 'apple', idToken: { token: cred.identityToken!, user: { name } } });
+      } else {
+        // errorCallbackURL brings failures back to the app instead of leaving the user on a web error page.
+        result = await authClient.signIn.social({ provider: 'google', callbackURL: '/', errorCallbackURL: '/' });
+        // The browser flow doesn't report why it ended (cancel vs. error), so check whether a session exists.
+        // Most common failure: the email already has a password account (Better Auth won't auto-link an unverified one).
+        if (!result.error && !(await authClient.getSession()).data) {
+          Alert.alert(
+            "Google sign-in didn't finish",
+            'If you already created an account with this email and a password, sign in with email instead.',
+          );
+        }
+      }
+      if (result.error) Alert.alert('Sign in failed', result.error.message ?? 'Try again.');
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'ERR_REQUEST_CANCELED') Alert.alert('Sign in failed', 'Try again.');
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (

@@ -1,13 +1,13 @@
 import Constants from 'expo-constants';
-import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
-import { DAILY_LIMIT, listDesigns } from '@/lib/api';
+import { DAILY_LIMIT } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
+import { useRemainingToday } from '@/lib/quota';
 import { C } from '@/lib/theme';
 
 const PRIVACY_URL = 'https://example.com/privacy'; // TODO: hosted privacy policy page
@@ -32,18 +32,17 @@ function Row({ icon, label, onPress, danger, loading, last }: { icon: IconName; 
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const { data: session } = authClient.useSession();
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const remaining = useRemainingToday();
   const [busy, setBusy] = useState<'signOut' | 'delete' | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      listDesigns().then((r) => setRemaining(r.remaining));
-    }, []),
-  );
 
   async function deleteAccount() {
     setBusy('delete');
-    await authClient.deleteUser();
+    const { error } = await authClient.deleteUser();
+    setBusy(null);
+    if (!error) return;
+    const message = error.message ?? 'Try again.';
+    if (Platform.OS === 'web') window.alert(`Could not delete account\n\n${message}`); // Alert.alert is a no-op on web
+    else Alert.alert('Could not delete account', message);
   }
 
   function confirmDelete() {
@@ -72,10 +71,10 @@ export default function Profile() {
 
       <View className="flex-row items-center gap-4">
         <View className="h-16 w-16 items-center justify-center rounded-full bg-accent">
-          <Text className="text-2xl font-semibold text-accent-ink">{user?.name.charAt(0).toUpperCase()}</Text>
+          <Text className="text-2xl font-semibold text-accent-ink">{(user?.name || user?.email)?.charAt(0).toUpperCase()}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-xl font-semibold text-cream">{user?.name}</Text>
+          <Text className="text-xl font-semibold text-cream">{user?.name || 'Your account'}</Text>
           <Text className="mt-0.5 text-sm text-muted" numberOfLines={1}>
             {user?.email}
           </Text>
@@ -108,6 +107,7 @@ export default function Profile() {
           onPress={async () => {
             setBusy('signOut');
             await authClient.signOut();
+            setBusy(null);
           }}
         />
       </View>

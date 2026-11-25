@@ -1,97 +1,84 @@
-// FAKE backend. Same shapes as the planned API routes (/api/upload-auth + ImageKit upload,
-// /api/generate, /api/designs, /api/designs/[id]) but backed by bundled images and an
-// in-memory list. Swap the bodies for real fetch calls later; screens won't change.
-import { STYLES, type RoomTypeId, type StyleId } from '@/lib/catalog';
+// Thin client for the API routes in src/app/api. All business logic lives on the server.
+import { File } from 'expo-file-system';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 
-export const DAILY_LIMIT = 5;
-const FAIL_RATE = 0.15; // fake OpenAI failures so the Retry UI can be seen. Set 0 to disable.
+import { API_URL, authClient } from '@/lib/auth-client';
+import type { RoomTypeId, StyleId } from '@/lib/catalog';
 
-export type ImageRef = string | number; // signed URL in the real app; bundled asset here
-export type Design = {
-  id: string;
-  roomType: RoomTypeId;
-  style: StyleId;
-  createdAt: string;
-  originalUrl: ImageRef;
-  resultUrl: ImageRef;
-};
+export { DAILY_LIMIT } from '@/lib/catalog';
+
+export type ImageRef = string | number; // signed URL, or a bundled asset
+export type Design = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; originalUrl: string; resultUrl: string };
+export type DesignSummary = { id: string; roomType: RoomTypeId; style: StyleId; createdAt: string; thumbUrl: string };
+
+export const SAMPLE_LIVING = require('@/assets/images/rooms/living-before.jpg');
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
 
-const BEDROOM: Partial<Record<StyleId, number>> = {
-  japandi: require('@/assets/images/rooms/bedroom-japandi.jpg'),
-  luxury: require('@/assets/images/rooms/bedroom-luxury.jpg'),
-  scandinavian: require('@/assets/images/rooms/bedroom-scandinavian.jpg'),
-};
-export const SAMPLE_LIVING = require('@/assets/images/rooms/living-before.jpg');
-const SAMPLE_BEDROOM = require('@/assets/images/rooms/bedroom-before.jpg');
+const web = Platform.OS === 'web';
 
-const fakeResult = (roomType: RoomTypeId, style: StyleId): ImageRef =>
-  (roomType === 'bedroom' && BEDROOM[style]) || STYLES.find((s) => s.id === style)!.image;
-
-const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
-const seed = (): Design[] => [
-  { id: 'd5', roomType: 'living-room', style: 'japandi', createdAt: hoursAgo(1), originalUrl: SAMPLE_LIVING, resultUrl: fakeResult('living-room', 'japandi') },
-  { id: 'd4', roomType: 'bedroom', style: 'luxury', createdAt: hoursAgo(2), originalUrl: SAMPLE_BEDROOM, resultUrl: fakeResult('bedroom', 'luxury') },
-  { id: 'd3', roomType: 'living-room', style: 'industrial', createdAt: hoursAgo(26), originalUrl: SAMPLE_LIVING, resultUrl: fakeResult('living-room', 'industrial') },
-  { id: 'd2', roomType: 'bedroom', style: 'scandinavian', createdAt: hoursAgo(50), originalUrl: SAMPLE_BEDROOM, resultUrl: fakeResult('bedroom', 'scandinavian') },
-  { id: 'd1', roomType: 'living-room', style: 'coastal', createdAt: hoursAgo(75), originalUrl: SAMPLE_LIVING, resultUrl: fakeResult('living-room', 'coastal') },
-];
-
-let designs = seed();
-let seq = 0; // keeps ids unique within the same millisecond
-let resetVersion = 0; // bumped on reset so in-flight generations don't resurrect into a wiped account
-export const resetFakeData = () => {
-  designs = [];
-  resetVersion++;
-};
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const usedToday = () => {
-  const startOfUtcDay = new Date().setUTCHours(0, 0, 0, 0);
-  return designs.filter((d) => Date.parse(d.createdAt) >= startOfUtcDay).length;
-};
-const remaining = () => Math.max(0, DAILY_LIMIT - usedToday());
-
-/** GET /api/designs */
-export async function listDesigns() {
-  await wait(500);
-  return { designs: [...designs], remaining: remaining(), limit: DAILY_LIMIT };
+/**
+ * `path` is an API route ("/api/…") or a full URL (the generate Neon Function).
+ * Native: we send the stored session cookie ourselves ('include' can clobber it).
+ * Web: the browser owns the httpOnly cookie; the cross-origin Function gets the session token as a Bearer header.
+ */
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const external = path.startsWith('http');
+  const auth: Record<string, string> = !web
+    ? { Cookie: await authClient.getCookie() }
+    : external
+      ? { Authorization: `Bearer ${(await authClient.getSession()).data?.session.token ?? ''}` }
+      : {};
+  const res = await fetch(external ? path : `${API_URL}${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...auth },
+    credentials: web && !external ? 'include' : 'omit',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body.error ?? 'Something went wrong. Try again.');
+  return body as T;
 }
 
-/** GET /api/designs/[id] */
-export async function getDesign(id: string) {
-  await wait(300);
-  const d = designs.find((x) => x.id === id);
-  if (!d) throw new ApiError(404, 'Design not found');
-  return d;
-}
+export const listDesigns = () => request<{ designs: DesignSummary[] }>('/api/designs');
 
-/** GET /api/upload-auth, then a direct private upload to ImageKit */
+export const getDesign = (id: string) => request<Design>(`/api/designs/${encodeURIComponent(id)}`);
+
+export const generateDesign = (generateUrl: string, input: { originalPath: string; roomType: RoomTypeId; style: StyleId; landscape: boolean }) =>
+  request<Design>(generateUrl, { method: 'POST', body: JSON.stringify(input) });
+
+/** Shrink to at most 1536px JPEG on the phone, then upload straight to ImageKit as a private file. */
 export async function uploadPhoto(uri: string) {
-  await wait(1500);
-  return { path: uri };
-}
+  const image = await ImageManipulator.manipulate(uri).renderAsync();
+  const landscape = image.width >= image.height;
+  const scale = 1536 / Math.max(image.width, image.height);
+  const ctx = ImageManipulator.manipulate(image);
+  if (scale < 1) ctx.resize(landscape ? { width: 1536 } : { height: 1536 });
+  const small = await (await ctx.renderAsync()).saveAsync({ compress: 0.85, format: SaveFormat.JPEG });
 
-/** POST /api/generate */
-export async function generateDesign(input: { originalPath: string; roomType: RoomTypeId; style: StyleId }) {
-  const version = resetVersion;
-  await wait(6000);
-  if (version !== resetVersion) throw new ApiError(401, 'Your account was deleted.');
-  if (remaining() === 0) throw new ApiError(429, "You've used all 5 designs for today. Come back tomorrow.");
-  if (Math.random() < FAIL_RATE) throw new ApiError(502, "We couldn't redesign this photo. Your daily quota wasn't used, so feel free to try again.");
-  const d: Design = {
-    id: `d${Date.now()}-${++seq}`,
-    roomType: input.roomType,
-    style: input.style,
-    createdAt: new Date().toISOString(),
-    originalUrl: input.originalPath,
-    resultUrl: fakeResult(input.roomType, input.style),
-  };
-  designs.unshift(d);
-  return d;
+  const auth = await request<{ token: string; expire: number; signature: string; publicKey: string; folder: string; generateUrl: string }>(
+    '/api/upload-auth',
+  );
+  const form = new FormData();
+  form.append('file', new File(small.uri)); // expo/fetch can't send RN-style { uri } parts; File is a real Blob
+  form.append('fileName', 'room.jpg');
+  form.append('folder', auth.folder);
+  form.append('isPrivateFile', 'true');
+  form.append('useUniqueFileName', 'true');
+  form.append('publicKey', auth.publicKey);
+  form.append('signature', auth.signature);
+  form.append('expire', String(auth.expire));
+  form.append('token', auth.token);
+
+  const res = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body: form });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.filePath) throw new ApiError(res.status, "We couldn't upload your photo. Check your connection and try again.");
+  return { path: body.filePath as string, landscape, generateUrl: auth.generateUrl };
 }
